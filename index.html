@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Notes</title>
+    <!-- Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-firestore-compat.min.js"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #166088;
+            --accent-color: #4fc3dc;
+            --text-color: #333;
+            --light-bg: #f9f9f9;
+            --white: #ffffff;
+            --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            --border-radius: 8px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light-bg);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary-color);
+            color: var(--white);
+            padding: 20px 0;
+            box-shadow: var(--shadow);
+        }
+        
+        .app-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .auth-container {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .auth-container.logged-in {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .auth-form input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .sidebar {
+            background-color: var(--white);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        
+        .note-container {
+            background-color: var(--white);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        
+        .note-list {
+            list-style: none;
+            margin-top: 15px;
+        }
+        
+        .note-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .note-item:hover {
+            background-color: rgba(74, 111, 165, 0.1);
+        }
+        
+        .note-item.active {
+            background-color: rgba(74, 111, 165, 0.2);
+            font-weight: bold;
+        }
+        
+        .note-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .editor-container {
+            width: 100%;
+        }
+        
+        .note-title {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+        }
+        
+        .note-content {
+            width: 100%;
+            height: 350px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            resize: vertical;
+            font-size: 16px;
+        }
+        
+        button {
+            padding: 8px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        button.delete {
+            background-color: #e74c3c;
+        }
+        
+        button.delete:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-icon {
+            background: none;
+            border: none;
+            color: #777;
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        .btn-icon:hover {
+            color: #e74c3c;
+            background: none;
+        }
+
+        .login-message {
+            text-align: center;
+            margin: 40px 0;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .auth-toggle {
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .auth-toggle a {
+            color: var(--primary-color);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .note-date {
+            font-size: 12px;
+            color: #777;
+        }
+        
+        .no-notes {
+            text-align: center;
+            margin-top: 30px;
+            color: #777;
+        }
+        
+        .welcome-user {
+            font-weight: normal;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .auth-container.logged-in {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .note-controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .note-content {
+                height: 250px;
+            }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="app-title">
+                <h1>Cloud Notes <i class="fas fa-cloud"></i></h1>
+                <div class="auth-container" id="authContainer">
+                    <div id="loginForm" class="auth-form">
+                        <h3>Log In</h3>
+                        <input type="email" id="loginEmail" placeholder="Email" required>
+                        <input type="password" id="loginPassword" placeholder="Password" required>
+                        <button id="loginButton">Log In</button>
+                        <div class="auth-toggle">
+                            <a id="showSignup">Need an account? Sign up</a>
+                        </div>
+                    </div>
+                    <div id="signupForm" class="auth-form hidden">
+                        <h3>Sign Up</h3>
+                        <input type="email" id="signupEmail" placeholder="Email" required>
+                        <input type="password" id="signupPassword" placeholder="Password" required>
+                        <button id="signupButton">Sign Up</button>
+                        <div class="auth-toggle">
+                            <a id="showLogin">Already have an account? Log in</a>
+                        </div>
+                    </div>
+                    <div id="userDetails" class="hidden">
+                        <span id="userEmail"></span>
+                        <button id="logoutButton">Log Out</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="loginMessage" class="login-message">
+            Please log in to access your notes.
+        </div>
+        
+        <div id="mainContent" class="main-content hidden">
+            <div class="sidebar">
+                <div class="note-controls">
+                    <h2>My Notes</h2>
+                    <button id="newNoteBtn"><i class="fas fa-plus"></i> New Note</button>
+                </div>
+                <ul id="notesList" class="note-list">
+                    <!-- Notes will be loaded here -->
+                </ul>
+                <div id="notesLoader" class="loader hidden"></div>
+                <div id="noNotes" class="no-notes hidden">
+                    <p>You have no notes yet.</p>
+                </div>
+            </div>
+            
+            <div id="noteContainer" class="note-container">
+                <div class="note-controls">
+                    <input type="text" id="noteTitle" class="note-title" placeholder="Note Title">
+                    <div>
+                        <button id="saveNoteBtn">Save</button>
+                        <button id="deleteNoteBtn" class="delete">Delete</button>
+                    </div>
+                </div>
+                <div class="editor-container">
+                    <textarea id="noteContent" class="note-content" placeholder="Write your note here..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+      
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyAytJYuTjga_3JAqemslSvDLXSFcE-TNuU",
+          authDomain: "cloudnote-fc8b3.firebaseapp.com",
+          projectId: "cloudnote-fc8b3",
+          storageBucket: "cloudnote-fc8b3.firebasestorage.app",
+          messagingSenderId: "705750135323",
+          appId: "1:705750135323:web:832f6b186453fc8fe6febe"
+        };
+      
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // DOM Elements
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        const showSignupLink = document.getElementById('showSignup');
+        const showLoginLink = document.getElementById('showLogin');
+        const loginButton = document.getElementById('loginButton');
+        const signupButton = document.getElementById('signupButton');
+        const logoutButton = document.getElementById('logoutButton');
+        const userDetails = document.getElementById('userDetails');
+        const userEmail = document.getElementById('userEmail');
+        const loginMessage = document.getElementById('loginMessage');
+        const mainContent = document.getElementById('mainContent');
+        const authContainer = document.getElementById('authContainer');
+        
+        const notesList = document.getElementById('notesList');
+        const noteTitle = document.getElementById('noteTitle');
+        const noteContent = document.getElementById('noteContent');
+        const newNoteBtn = document.getElementById('newNoteBtn');
+        const saveNoteBtn = document.getElementById('saveNoteBtn');
+        const deleteNoteBtn = document.getElementById('deleteNoteBtn');
+        const notesLoader = document.getElementById('notesLoader');
+        const noNotes = document.getElementById('noNotes');
+        
+        let currentUser = null;
+        let currentNoteId = null;
+        let notes = [];
+
+        // Show/hide forms
+        showSignupLink.addEventListener('click', () => {
+            loginForm.classList.add('hidden');
+            signupForm.classList.remove('hidden');
+        });
+        
+        showLoginLink.addEventListener('click', () => {
+            signupForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        });
+        
+        // Auth functionality
+        signupButton.addEventListener('click', () => {
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Signed in
+                    document.getElementById('signupEmail').value = '';
+                    document.getElementById('signupPassword').value = '';
+                    signupForm.classList.add('hidden');
+                    loginForm.classList.add('hidden');
+                })
+                .catch((error) => {
+                    alert('Error: ' + error.message);
+                });
+        });
+        
+        loginButton.addEventListener('click', () => {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Logged in
+                    document.getElementById('loginEmail').value = '';
+                    document.getElementById('loginPassword').value = '';
+                })
+                .catch((error) => {
+                    alert('Error: ' + error.message);
+                });
+        });
+        
+        logoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                // Sign-out successful
+            }).catch((error) => {
+                alert('Error signing out: ' + error.message);
+            });
+        });
+        
+        // Auth state observer
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // User is signed in
+                currentUser = user;
+                userEmail.textContent = user.email;
+                userDetails.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+                signupForm.classList.add('hidden');
+                loginMessage.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                authContainer.classList.add('logged-in');
+                loadNotes();
+            } else {
+                // User is signed out
+                currentUser = null;
+                userDetails.classList.add('hidden');
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                loginMessage.classList.remove('hidden');
+                mainContent.classList.add('hidden');
+                authContainer.classList.remove('logged-in');
+                clearEditor();
+            }
+        });
+        
+        // Notes functionality
+        function loadNotes() {
+            if (!currentUser) return;
+            
+            notesLoader.classList.remove('hidden');
+            notesList.innerHTML = '';
+            
+            db.collection('users').doc(currentUser.uid).collection('notes')
+                .orderBy('updatedAt', 'desc')
+                .get()
+                .then((querySnapshot) => {
+                    notes = [];
+                    querySnapshot.forEach((doc) => {
+                        const noteData = doc.data();
+                        notes.push({
+                            id: doc.id,
+                            title: noteData.title || 'Untitled',
+                            content: noteData.content || '',
+                            createdAt: noteData.createdAt,
+                            updatedAt: noteData.updatedAt
+                        });
+                    });
+                    
+                    renderNotesList();
+                    notesLoader.classList.add('hidden');
+                    
+                    if (notes.length === 0) {
+                        noNotes.classList.remove('hidden');
+                    } else {
+                        noNotes.classList.add('hidden');
+                        selectNote(notes[0].id);
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error loading notes: ", error);
+                    notesLoader.classList.add('hidden');
+                    alert('Error loading notes: ' + error.message);
+                });
+        }
+        
+        function renderNotesList() {
+            notesList.innerHTML = '';
+            
+            notes.forEach(note => {
+                const li = document.createElement('li');
+                li.className = 'note-item';
+                if (note.id === currentNoteId) {
+                    li.classList.add('active');
+                }
+                
+                const noteInfo = document.createElement('div');
+                noteInfo.innerHTML = `
+                    <div>${note.title}</div>
+                    <div class="note-date">${formatDate(note.updatedAt)}</div>
+                `;
+                
+                li.appendChild(noteInfo);
+                
+                li.addEventListener('click', () => selectNote(note.id));
+                notesList.appendChild(li);
+            });
+        }
+        
+        function selectNote(noteId) {
+            currentNoteId = noteId;
+            const selectedNote = notes.find(note => note.id === noteId);
+            
+            if (selectedNote) {
+                noteTitle.value = selectedNote.title;
+                noteContent.value = selectedNote.content;
+                noteTitle.disabled = false;
+                noteContent.disabled = false;
+                deleteNoteBtn.disabled = false;
+            }
+            
+            // Update active class
+            document.querySelectorAll('.note-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const activeItem = Array.from(notesList.children).find(item => 
+                item.textContent.includes(selectedNote.title)
+            );
+            
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+        }
+        
+        newNoteBtn.addEventListener('click', () => {
+            clearEditor();
+            currentNoteId = null;
+            noteTitle.disabled = false;
+            noteContent.disabled = false;
+            deleteNoteBtn.disabled = false;
+            noteTitle.focus();
+            
+            // Remove active class from all notes
+            document.querySelectorAll('.note-item').forEach(item => {
+                item.classList.remove('active');
+            });
+        });
+        
+        saveNoteBtn.addEventListener('click', () => {
+            if (!currentUser) return;
+            
+            const title = noteTitle.value || 'Untitled';
+            const content = noteContent.value || '';
+            const timestamp = firebase.firestore.FieldValue.serverTimestamp();
+            
+            if (currentNoteId) {
+                // Update existing note
+                db.collection('users').doc(currentUser.uid).collection('notes').doc(currentNoteId)
+                    .update({
+                        title: title,
+                        content: content,
+                        updatedAt: timestamp
+                    })
+                    .then(() => {
+                        alert('Note updated successfully!');
+                        loadNotes();
+                    })
+                    .catch((error) => {
+                        console.error("Error updating note: ", error);
+                        alert('Error updating note: ' + error.message);
+                    });
+            } else {
+                // Create new note
+                db.collection('users').doc(currentUser.uid).collection('notes')
+                    .add({
+                        title: title,
+                        content: content,
+                        createdAt: timestamp,
+                        updatedAt: timestamp
+                    })
+                    .then(() => {
+                        alert('Note created successfully!');
+                        loadNotes();
+                    })
+                    .catch((error) => {
+                        console.error("Error adding note: ", error);
+                        alert('Error adding note: ' + error.message);
+                    });
+            }
+        });
+        
+        deleteNoteBtn.addEventListener('click', () => {
+            if (!currentUser || !currentNoteId) return;
+            
+            if (confirm('Are you sure you want to delete this note?')) {
+                db.collection('users').doc(currentUser.uid).collection('notes').doc(currentNoteId)
+                    .delete()
+                    .then(() => {
+                        alert('Note deleted successfully!');
+                        clearEditor();
+                        currentNoteId = null;
+                        loadNotes();
+                    })
+                    .catch((error) => {
+                        console.error("Error removing note: ", error);
+                        alert('Error deleting note: ' + error.message);
+                    });
+            }
+        });
+        
+        function clearEditor() {
+            noteTitle.value = '';
+            noteContent.value = '';
+            noteTitle.disabled = true;
+            noteContent.disabled = true;
+            deleteNoteBtn.disabled = true;
+        }
+        
+        function formatDate(timestamp) {
+            if (!timestamp) return '';
+            
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+    </script>
+</body>
+</html>
